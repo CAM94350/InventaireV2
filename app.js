@@ -1,5 +1,5 @@
 // Inventaire Cloud — v6.6
-const VERSION = "v10.0";
+const VERSION = "v10.1";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
