@@ -1,0 +1,65 @@
+:root { --bg:#f7f7f7; --border:#c9c9c9; --text:#222; --primary:#0067c0; --primary-dark:#00539b; }
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);background:var(--bg)}
+header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:.5rem .75rem;z-index:10}
+h1{margin:0 0 .35rem 0;font-size:1.1rem}
+
+.toolbar{display:flex;flex-direction:column;gap:.5rem}
+button{background:var(--primary);color:#fff;border:none;padding:.3rem .55rem;border-radius:.2rem;cursor:pointer;font-weight:600;font-size:14px}
+button:hover{filter:brightness(1.05)}
+button.secondary{background:#555}
+.status{margin-left:auto;font-size:.85rem;color:#555}
+
+/* Auth sur 3 lignes */
+.auth-form-3rows{display:flex;flex-direction:column;gap:.35rem}
+.auth-row{display:flex}
+.auth-row input{width:100%;padding:.35rem .45rem;border:1px solid var(--border);border-radius:.25rem}
+.auth-row button{width:100%;padding:.4rem .55rem}
+.auth-info{display:flex;align-items:center;gap:.5rem}
+#auth-user{font-weight:600}
+
+/* Palette inline */
+.palette-inline{display:flex;align-items:center;gap:.35rem}
+.palette-inline input{padding:.35rem .45rem;border:1px solid var(--border);border-radius:.25rem;min-width:220px}
+.palette-inline button{padding:.35rem .55rem}
+
+/* Actions sous la palette */
+.actions{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
+
+main{padding:.75rem}
+
+/* Tableau compact */
+table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}
+thead th{position:sticky;top:72px;background:#fff;z-index:5;text-align:left}
+th,td{border:1px solid var(--border);padding:4px 6px;line-height:1.1;vertical-align:middle}
+tr:nth-child(even){background:#fafafa}
+
+/* Colonnes */
+.col-designation{width:72%}
+.col-qty{width:28%}
+
+/* Inputs */
+td input[type="text"], td input[type="number"]{width:100%;border:1px solid var(--border);border-radius:3px;padding:3px 6px;height:30px;line-height:1.2;font-size:14px}
+
+/* Quantité : input à gauche, boutons regroupés à droite ; largeur pour 4 chiffres */
+.qty-wrap{display:flex;align-items:center;gap:.5rem}
+.qty{width:110px}
+.qty-buttons{margin-left:auto;display:inline-flex;gap:.25rem}
+.qty-btn{background:var(--primary);color:#fff;border:none;border-radius:6px;width:32px;height:30px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+.qty-btn:active{background:var(--primary-dark)}
+
+/* Sécurité d'affichage si authentifié */
+body.is-authenticated #auth-form { display: none !important; }
+body.is-authenticated #auth-info { display: flex !important; }
+
+/* Mobile */
+@media (max-width: 640px){
+  .palette-inline input{min-width:160px}
+  .status{order:2;width:100%;margin-left:0}
+
+  #inventory-table tbody tr{display:flex;align-items:center;gap:.6rem}
+  .col-designation{flex:1}
+  .col-qty{flex:0 0 auto; min-width:240px}
+  .qty{height:36px;font-size:16px;width:120px}
+  .qty-btn{width:40px;height:36px;border-radius:8px;font-size:18px}
+}

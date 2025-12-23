@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inventaire — v10.0</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Inventaire — v10.0</h1>
+    <div class="toolbar">
+      <!-- Auth sur 3 lignes -->
+      <div id="auth-area" class="auth">
+        <form id="auth-form" class="auth-form-3rows" autocomplete="off">
+          <div class="auth-row"><input type="email" id="auth-email" placeholder="email@exemple.fr" required /></div>
+          <div class="auth-row"><input type="password" id="auth-password" placeholder="Mot de passe" required /></div>
+          <div class="auth-row"><button type="submit" id="btn-login">Se connecter</button></div>
+        </form>
+        <div id="auth-info" class="auth-info" hidden>
+          <span id="auth-user"></span>
+          <button id="btn-logout" class="secondary">Se déconnecter</button>
+        </div>
+      </div>
+
+      <!-- Palette en ligne, autres boutons en dessous -->
+      <div class="palette-inline">
+        <label for="palette-code">Numéro palette</label>
+        <input type="text" id="palette-code" placeholder="Ex: PAL-2025-000123" />
+        <button id="btn-load-palette">Charger</button>
+      </div>
+
+      <div class="toolbar-row actions">
+        <button id="add-row">+ Ligne</button>
+        <button id="save">Sauvegarder</button>
+        <button id="export-csv">Exporter CSV</button>
+        <button id="print">Imprimer</button>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <table id="inventory-table">
+      <thead>
+        <tr>
+          <th class="sticky" colspan="2">Désignation</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </main>
+
+  <template id="row-template">
+    <tr>
+      <td class="col-designation">
+        <input type="text" class="designation" placeholder="Désignation" />
+      </td>
+      <td class="col-qty">
+        <div class="qty-wrap">
+          <input type="number" class="qty" min="0" step="1" inputmode="numeric" placeholder="0000" />
+          <div class="qty-buttons">
+            <button type="button" class="qty-btn qty-plus" aria-label="Augmenter">+</button>
+            <button type="button" class="qty-btn qty-minus" aria-label="Diminuer">−</button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </template>
+
+  <footer>
+    <p>Inventaire — v6.3 • Données Supabase</p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
