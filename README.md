@@ -1,6 +1,9 @@
-# Inventaire — v6.3
+# Inventaire — v10.1
 
-- Titre + header affichent la version.
+## Changements
+
+- Version centralisée dans `app.js` (source unique) :
+  - le `<title>`, le titre de page et le footer sont mis à jour automatiquement au chargement.
 - Auth masquée si connecté (classe `is-authenticated` + `hidden`).
 - Auth sur 3 lignes si non connecté.
 - Palette + Charger sur une ligne, actions en dessous.
