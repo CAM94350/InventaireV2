@@ -1,5 +1,5 @@
-// Inventaire Cloud
-const VERSION = "v10.1";
+// Inventaire Cloud — v6.6
+const VERSION = "v10.2";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -209,10 +209,7 @@ async function main(){
   bindUI();
   bindAuthHandlers();
   await initAuthUI();
-  const h1 = document.getElementById('app-title') || document.querySelector('h1');
-  if(h1) h1.textContent = `Inventaire — ${VERSION}`;
-  const footer = document.getElementById('app-footer');
-  if(footer) footer.textContent = `Inventaire — ${VERSION} • Données Supabase`;
+  const h1 = document.querySelector('h1'); if(h1) h1.textContent = `Inventaire — ${VERSION}`;
 }
 
 main();
