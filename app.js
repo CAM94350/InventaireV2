@@ -77,7 +77,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v11.4.1";
+const VERSION = "v11.4.2";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -88,7 +88,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 
 
-// v11.4.1 – client session id (per browser/device). Ensures locks work even with same login on multiple devices.
+// v11.4.2 – client session id (per browser/device). Ensures locks work even with same login on multiple devices.
 function getClientSessionId() {
   const key = 'inventaire_session_id';
   let v = localStorage.getItem(key);
@@ -240,9 +240,9 @@ async function loadPaletteByCode(code){
   currentPaletteId = pal.id;
   lastLoadedCode = code;
 
-  // v11.4.1: acquire lock
+  // v11.4.2: acquire lock
   await acquireLock(currentPaletteId);
-  // v11.4.1: load photos
+  // v11.4.2: load photos
   await renderPalettePhotos(currentPaletteId);
 
 
@@ -418,6 +418,17 @@ async function renderPalettePhotos(paletteId) {
       img.alt = 'Photo palette';
       img.className = 'palette-photo-thumb';
       img.loading = 'lazy';
+      img.addEventListener('click', ()=>{ window.open(url, '_blank'); });
+      img.onerror = () => {
+        console.error('Image non affichable. URL:', url);
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.textContent = 'Ouvrir la photo';
+        a.style.display = 'inline-block';
+        a.style.margin = '6px 8px';
+        container.appendChild(a);
+      };
       container.appendChild(img);
     } catch (e) {
       console.error('Erreur URL signée', e);
@@ -453,7 +464,7 @@ async function uploadPalettePhoto(file) {
 
 window.addEventListener('beforeunload', ()=>{ try{ releaseLock(); }catch(e){} });
 
-// v11.4.1 – Photo capture / selection
+// v11.4.2 – Photo capture / selection
 function setupPhotoCapture() {
   const btn = document.getElementById('btn-take-photo');
   const input = document.getElementById('palette-photo-input');
@@ -473,12 +484,18 @@ function setupPhotoCapture() {
       const file = input.files && input.files[0];
       if (!file) return;
 
+      const allowed = ['image/jpeg','image/png','image/webp'];
+      if (file.type && !allowed.includes(file.type)) {
+        alert(`Format non supporté (${file.type}). Choisir une image JPG/PNG/WEBP.`);
+        return;
+      }
+
       if (typeof isLocked !== 'undefined' && isLocked) {
         alert("Palette verrouillée : impossible d'ajouter une photo.");
         return;
       }
 
-      await uploadPalettePhoto(currentPaletteId, currentPaletteNumber || currentPaletteId, file);
+      await uploadPalettePhoto(file);
     } catch (e) {
       console.error(e);
       alert("Erreur lors de l'envoi de la photo : " + (e.message || e));
@@ -486,7 +503,7 @@ function setupPhotoCapture() {
   });
 }
 
-// v11.4.1 – keep palette number in sync
+// v11.4.2 – keep palette number in sync
 function setupPaletteNumberSync() {
   const el = document.getElementById('palette-number');
   if (!el) return;

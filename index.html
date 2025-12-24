@@ -8,7 +8,7 @@
 </head>
 <body>
   <header>
-    <h1>Inventaire — v11.4.1</h1>
+    <h1>Inventaire — v11.4.2</h1>
     <div class="toolbar">
       <!-- Auth sur 3 lignes -->
       <div id="auth-area" class="auth">
@@ -50,10 +50,11 @@
         <div class="palette-photos-header">
           <div class="palette-photos-title">Photo de la palette</div>
           <button id="btn-take-photo" type="button">Prendre une photo</button>
-<input type="file" id="palette-photo-input" accept="image/*" capture="environment" style="display:none" />
+<input type="file" id="palette-photo-input" accept="image/jpeg,image/png,image/webp" capture="environment" style="display:none" />
           <input id="photo-input" type="file" accept="image/*" capture="environment" hidden />
         </div>
         <div id="palette-photos" class="palette-photos"></div>
+<div class="photo-hint">Formats supportés : JPG / PNG / WEBP</div>
       </div>
 
 

@@ -126,3 +126,9 @@ body.is-authenticated #auth-info { display: flex !important; }
     flex-direction: row;
   }
 }
+
+.photo-hint{
+  font-size: 0.9em;
+  opacity: 0.8;
+  margin-top: 6px;
+}
