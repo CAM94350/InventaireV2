@@ -52,14 +52,34 @@ td input[type="text"], td input[type="number"]{width:100%;border:1px solid var(-
 body.is-authenticated #auth-form { display: none !important; }
 body.is-authenticated #auth-info { display: flex !important; }
 
+
+
+/* Localisation palette */
+.palette-location{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.palette-location label{font-weight:600}
+.palette-location input{
+  flex:1 1 320px;
+  min-width:220px;
+  padding:.35rem .45rem;
+  border:1px solid var(--border);
+  border-radius:.25rem;
+  height:30px;
+  line-height:1.2;
+  font-size:14px;
+}
+
 /* Mobile */
 @media (max-width: 640px){
   .palette-inline input{min-width:160px}
+  .palette-inline input{height:36px;font-size:16px}
+  .palette-location{flex-direction:column;align-items:stretch}
+  /* Force la même hauteur que "Numéro palette" en mobile (certains navigateurs Android peuvent étirer l'input) */
+  .palette-location input{height:36px !important;min-height:36px !important;font-size:16px}
   .status{order:2;width:100%;margin-left:0}
 
   #inventory-table tbody tr{display:flex;align-items:center;gap:.6rem}
-  .col-designation{flex:1}
-  .col-qty{flex:0 0 auto; min-width:240px}
-  .qty{height:36px;font-size:16px;width:120px}
-  .qty-btn{width:40px;height:36px;border-radius:8px;font-size:18px}
+  .col-designation{flex:1; min-width:0}
+  .col-qty{flex:0 0 auto; min-width:170px}
+  .qty{height:36px;font-size:16px;width:84px}
+  .qty-btn{width:36px;height:36px;border-radius:8px;font-size:18px}
 }

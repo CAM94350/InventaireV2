@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Inventaire — v10.1</title>
+  <title>Inventaire — v10.6-fix</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
-    <h1>Inventaire — v10.1</h1>
+    <h1>Inventaire — v10.6-fix</h1>
     <div class="toolbar">
       <!-- Auth sur 3 lignes -->
       <div id="auth-area" class="auth">
@@ -37,6 +37,12 @@
         <button id="print">Imprimer</button>
         <span class="status" id="status"></span>
       </div>
+    
+      <div class="palette-location">
+        <label for="palette-location">Localisation</label>
+        <input type="text" id="palette-location" placeholder="Ex: Zone A / Allée 3 / Rack B2" />
+      </div>
+
     </div>
   </header>
 
@@ -69,7 +75,7 @@
   </template>
 
   <footer>
-    <p>Inventaire — v6.3 • Données Supabase</p>
+    <p>Inventaire — v10.6-fix • Données Supabase</p>
   </footer>
 
   <script type="module" src="app.js"></script>

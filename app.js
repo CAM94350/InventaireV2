@@ -1,5 +1,5 @@
 // Inventaire Cloud — v6.6
-const VERSION = "v10.1";
+const VERSION = "v10.6-fix";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -10,7 +10,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const $ = (sel, root=document)=>root.querySelector(sel);
 const $all = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
-let currentPaletteId = null; let isAuthenticated = false;
+let currentPaletteId = null; let isAuthenticated = false; let lastLoadedCode = '';
 
 function newRow(){ return $('#row-template').content.firstElementChild.cloneNode(true); }
 function serializeRow(tr){
@@ -85,11 +85,15 @@ async function initAuthUI(){
 // DATA
 async function getOrCreatePaletteByCode(code){
   let { data: pal, error } = await supabase
-    .from('palettes').select('id, code').eq('code', code).maybeSingle();
-  if(error) throw error; if(pal) return pal.id;
+    .from('palettes').select('id, code, location').eq('code', code).maybeSingle();
+  if(error) throw error;
+  if(pal) return pal;
+
+  const location = ($('#palette-location')?.value || '').trim() || null;
   const { data: created, error: e2 } = await supabase
-    .from('palettes').insert({ code }).select('id').single();
-  if(e2) throw e2; return created.id;
+    .from('palettes').insert({ code, location }).select('id, code, location').single();
+  if(e2) throw e2;
+  return created;
 }
 
 async function ensureItemExists(designation){
@@ -115,15 +119,24 @@ async function prefillFromItemsIfEmpty(paletteId){
 async function loadPaletteByCode(code){
   if(!code){ alert('Saisir un numéro de palette'); return; }
   setStatus('Chargement...');
-  const paletteId = await getOrCreatePaletteByCode(code);
-  currentPaletteId = paletteId;
-  await prefillFromItemsIfEmpty(paletteId);
+
+  const pal = await getOrCreatePaletteByCode(code);
+  currentPaletteId = pal.id;
+  lastLoadedCode = code;
+
+  // Localisation : si vide sur la palette chargée, on vide le champ de saisie
+  const locInput = $('#palette-location');
+  if(locInput) locInput.value = (pal.location || '').trim();
+
+  await prefillFromItemsIfEmpty(pal.id);
+
   const { data: lines, error } = await supabase
     .from('pallet_items')
     .select('id, designation, qty')
-    .eq('palette_id', paletteId)
+    .eq('palette_id', pal.id)
     .order('updated_at', { ascending:false });
   if(error) throw error;
+
   fillTable(lines||[]);
   setStatus(`Palette ${code} chargée (${lines?.length||0} lignes)`);
 }
@@ -132,6 +145,14 @@ async function saveCurrentPalette(){
   const code = $('#palette-code').value.trim(); if(!code){ alert('Aucune palette'); return; }
   const paletteId = currentPaletteId || await getOrCreatePaletteByCode(code);
   currentPaletteId = paletteId;
+
+  // Mise à jour de la localisation sur la palette
+  const location = ($('#palette-location')?.value || '').trim() || null;
+  {
+    const { error: eLoc } = await supabase.from('palettes').update({ location }).eq('id', paletteId);
+    if(eLoc){ alert(eLoc.message); return; }
+  }
+
   const trs = $all('#table-body tr'); if(trs.length===0){ setStatus('Rien à sauvegarder'); return; }
   const rows = trs.map(serializeRow);
   const payload = rows.map(r=>({ id: r.id || undefined, palette_id: paletteId, designation: r.designation, qty: Math.max(0, r.qty), updated_at: new Date().toISOString() }));
@@ -195,6 +216,14 @@ function handleDesignationChange(e){
 
 function bindUI(){
   $('#btn-load-palette').addEventListener('click', ()=>loadPaletteByCode($('#palette-code').value.trim()));
+  $('#palette-code').addEventListener('input', ()=>{
+    const code = $('#palette-code').value.trim();
+    if(code !== lastLoadedCode){
+      currentPaletteId = null;
+      const loc = $('#palette-location'); if(loc) loc.value = '';
+      setStatus('');
+    }
+  });
   $('#add-row').addEventListener('click', addRow);
   $('#save').addEventListener('click', saveCurrentPalette);
   $('#export-csv').addEventListener('click', exportCSV);
