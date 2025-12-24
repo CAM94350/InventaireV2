@@ -77,7 +77,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v11.4.3.3";
+const VERSION = "v12.0";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -236,7 +236,12 @@ async function loadPaletteByCode(code){
   if(!code){ alert('Saisir un numéro de palette'); return; }
   setStatus('Chargement...');
 
-  const pal = await getOrCreatePaletteByCode(code);
+  
+  // v12.0 – libérer le verrou de la palette précédente si l'utilisateur change de palette
+  if (currentPaletteId && currentLockToken && lastLoadedCode && code !== lastLoadedCode) {
+    try { await releaseLock(); } catch(e) { console.error('releaseLock failed', e); }
+  }
+const pal = await getOrCreatePaletteByCode(code);
   currentPaletteId = pal.id;
   lastLoadedCode = code;
 
