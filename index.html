@@ -36,12 +36,23 @@
         <button id="export-csv">Exporter CSV</button>
         <button id="print">Imprimer</button>
         <span class="status" id="status"></span>
+        <span class="lock-status" id="lock-status"></span>
       </div>
     
       <div class="palette-location">
         <label for="palette-location">Localisation</label>
         <input type="text" id="palette-location" placeholder="Ex: Zone A / Allée 3 / Rack B2" />
       </div>
+
+      <div class="palette-photos">
+        <div class="photos-head">
+          <div class="photos-title">Photo de la palette</div>
+          <input type="file" id="photo-input" accept="image/*" capture="environment" hidden />
+          <button id="btn-photo" type="button">Prendre une photo</button>
+        </div>
+        <div id="photo-list" class="photo-list"></div>
+      </div>
+
 
     </div>
   </header>
