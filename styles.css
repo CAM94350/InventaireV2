@@ -72,9 +72,8 @@ body.is-authenticated #auth-info { display: flex !important; }
 @media (max-width: 640px){
   .palette-inline input{min-width:160px}
   .palette-inline input{height:36px;font-size:16px}
-  .palette-location{flex-direction:column;align-items:stretch}
-  /* Force la même hauteur que "Numéro palette" en mobile (certains navigateurs Android peuvent étirer l'input) */
-  .palette-location input{height:36px !important;min-height:36px !important;font-size:16px}
+  .palette-location input{min-width:160px}
+  .palette-location input{height:36px;font-size:16px}
   .status{order:2;width:100%;margin-left:0}
 
   #inventory-table tbody tr{display:flex;align-items:center;gap:.6rem}
