@@ -1,4 +1,4 @@
-// Inventaire Cloud
+// Inventaire Cloud — v6.6
 const VERSION = "v10.5";
 document.title = `Inventaire — ${VERSION}`;
 
@@ -10,7 +10,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const $ = (sel, root=document)=>root.querySelector(sel);
 const $all = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
-let currentPaletteId = null; let isAuthenticated = false;
+let currentPaletteId = null; let isAuthenticated = false; let lastLoadedCode = '';
 
 function newRow(){ return $('#row-template').content.firstElementChild.cloneNode(true); }
 function serializeRow(tr){
@@ -84,56 +84,25 @@ async function initAuthUI(){
 
 // DATA
 async function getOrCreatePaletteByCode(code){
-  // On récupère aussi la localisation, pour l'afficher et la maintenir synchronisée.
   let { data: pal, error } = await supabase
     .from('palettes').select('id, code, location').eq('code', code).maybeSingle();
   if(error) throw error;
   if(pal) return pal;
 
-  const location = $('#palette-location')?.value?.trim() || null;
+  const location = ($('#palette-location')?.value || '').trim() || null;
   const { data: created, error: e2 } = await supabase
     .from('palettes').insert({ code, location }).select('id, code, location').single();
   if(e2) throw e2;
   return created;
 }
 
-async function updatePaletteLocation(paletteId){
-  if(!paletteId) return;
-  const location = $('#palette-location')?.value?.trim() || null;
+async function ensureItemExists(designation){
+  const name = (designation||'').trim(); if(!name) return;
+  if(!isAuthenticated) return; // RLS
   const { error } = await supabase
-    .from('palettes')
-    .update({ location })
-    .eq('id', paletteId);
-  if(error) console.warn('palettes update location error:', error.message);
-}
-
-async function ensureItemAndGetId(designation){
-  const name = (designation||'').trim();
-  if(!name) return null;
-  if(!isAuthenticated) return null; // RLS
-
-  // 1) Upsert + retour id
-  const { data: upserted, error: e1 } = await supabase
     .from('items')
-    .upsert({ designation: name }, { onConflict: 'designation' })
-    .select('id, designation')
-    .maybeSingle();
-  if(e1) {
-    console.warn('items upsert error:', e1.message);
-  }
-  if(upserted?.id) return upserted.id;
-
-  // 2) Fallback: select
-  const { data: selected, error: e2 } = await supabase
-    .from('items')
-    .select('id')
-    .eq('designation', name)
-    .maybeSingle();
-  if(e2) {
-    console.warn('items select error:', e2.message);
-    return null;
-  }
-  return selected?.id ?? null;
+    .upsert({ designation: name }, { onConflict: 'designation' });
+  if(error) console.warn('items upsert error:', error.message);
 }
 
 async function prefillFromItemsIfEmpty(paletteId){
@@ -150,56 +119,48 @@ async function prefillFromItemsIfEmpty(paletteId){
 async function loadPaletteByCode(code){
   if(!code){ alert('Saisir un numéro de palette'); return; }
   setStatus('Chargement...');
+
   const pal = await getOrCreatePaletteByCode(code);
   currentPaletteId = pal.id;
-  // Synchronise l'UI avec la donnée DB (si elle existe)
-  if($('#palette-location')) $('#palette-location').value = pal.location ?? '';
+  lastLoadedCode = code;
+
+  // Localisation : si vide sur la palette chargée, on vide le champ de saisie
+  const locInput = $('#palette-location');
+  if(locInput) locInput.value = (pal.location || '').trim();
 
   await prefillFromItemsIfEmpty(pal.id);
+
   const { data: lines, error } = await supabase
     .from('pallet_items')
     .select('id, designation, qty')
     .eq('palette_id', pal.id)
     .order('updated_at', { ascending:false });
   if(error) throw error;
+
   fillTable(lines||[]);
   setStatus(`Palette ${code} chargée (${lines?.length||0} lignes)`);
 }
 
 async function saveCurrentPalette(){
   const code = $('#palette-code').value.trim(); if(!code){ alert('Aucune palette'); return; }
-  const pal = currentPaletteId
-    ? { id: currentPaletteId }
-    : await getOrCreatePaletteByCode(code);
-  const paletteId = pal.id;
+  const paletteId = currentPaletteId || await getOrCreatePaletteByCode(code);
   currentPaletteId = paletteId;
 
-  // Sauvegarde aussi la localisation de la palette
-  await updatePaletteLocation(paletteId);
-  const trs = $all('#table-body tr'); if(trs.length===0){ setStatus('Rien à sauvegarder'); return; }
-  // On ignore les lignes vides (sinon contrainte NOT NULL côté DB)
-  const rows = trs.map(serializeRow).filter(r => !!r.designation);
-  if(rows.length === 0){ setStatus('Rien à sauvegarder'); return; }
-
-  // Pour éviter l'erreur "id = null", on force un UUID côté client si besoin.
-  // (plus robuste que de compter sur le DEFAULT DB lors d'un upsert)
-  for(const tr of trs){
-    if(!tr.dataset.rowId){
-      tr.dataset.rowId = (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
-    }
+  // Mise à jour de la localisation sur la palette
+  const location = ($('#palette-location')?.value || '').trim() || null;
+  {
+    const { error: eLoc } = await supabase.from('palettes').update({ location }).eq('id', paletteId);
+    if(eLoc){ alert(eLoc.message); return; }
   }
 
-  const payload = rows.map(r=>({
-    id: r.id || (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
-    palette_id: paletteId,
-    designation: r.designation,
-    qty: Math.max(0, r.qty),
-    updated_at: new Date().toISOString()
-  }));
+  const trs = $all('#table-body tr'); if(trs.length===0){ setStatus('Rien à sauvegarder'); return; }
+  const rows = trs.map(serializeRow);
+  const payload = rows.map(r=>({ id: r.id || undefined, palette_id: paletteId, designation: r.designation, qty: Math.max(0, r.qty), updated_at: new Date().toISOString() }));
   const { data, error } = await supabase
     .from('pallet_items')
     .upsert(payload, { onConflict:'id' }).select('id');
   if(error){ alert(error.message); return; }
+  const trs2 = $all('#table-body tr'); data.forEach((row,i)=>{ if(!trs2[i].dataset.rowId) trs2[i].dataset.rowId=row.id; });
 
   const unique = Array.from(new Set(rows.map(r=>r.designation.trim()).filter(Boolean)));
   if(isAuthenticated && unique.length){
@@ -222,20 +183,7 @@ function exportCSV(){
   a.href=url; a.download='inventaire.csv'; a.click(); URL.revokeObjectURL(url);
 }
 
-function addRow(){
-  const tr = newRow();
-  // On attribue immédiatement un UUID pour que les futures sauvegardes n'envoient jamais id=null
-  tr.dataset.rowId = (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
-  $('#table-body').appendChild(tr);
-
-  // Mobile/desktop: on se positionne en bas du tableau et focus sur la désignation
-  requestAnimationFrame(() => {
-    tr.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    const input = tr.querySelector('.designation');
-    input?.focus();
-    input?.select?.();
-  });
-}
+function addRow(){ $('#table-body').appendChild(newRow()); }
 
 function handleQtyButtons(e){
   const btn = e.target.closest('.qty-btn'); if(!btn) return;
@@ -260,20 +208,22 @@ function focusQtyOnDesignationClick(e){
   if(text.length > 0){ qty.focus(); qty.select?.(); }
 }
 
-async function handleDesignationBlur(e){
-  const input = e.target.closest('.designation');
-  if(!input) return;
-  const tr = input.closest('tr');
-  const text = input.value.trim();
-  if(!text) return;
-
-  // À la sortie du champ : insertion/upsert dans items + récupération de l'id
-  const itemId = await ensureItemAndGetId(text);
-  if(itemId && tr) tr.dataset.itemId = itemId;
+function handleDesignationChange(e){
+  const input = e.target.closest('.designation'); if(!input) return;
+  const text = input.value.trim(); if(!text) return;
+  ensureItemExists(text);
 }
 
 function bindUI(){
   $('#btn-load-palette').addEventListener('click', ()=>loadPaletteByCode($('#palette-code').value.trim()));
+  $('#palette-code').addEventListener('input', ()=>{
+    const code = $('#palette-code').value.trim();
+    if(code !== lastLoadedCode){
+      currentPaletteId = null;
+      const loc = $('#palette-location'); if(loc) loc.value = '';
+      setStatus('');
+    }
+  });
   $('#add-row').addEventListener('click', addRow);
   $('#save').addEventListener('click', saveCurrentPalette);
   $('#export-csv').addEventListener('click', exportCSV);
@@ -281,8 +231,7 @@ function bindUI(){
   $('#table-body').addEventListener('click', handleQtyButtons);
   $('#table-body').addEventListener('keydown', handleQtyKey);
   $('#table-body').addEventListener('click', focusQtyOnDesignationClick);
-  // focusout (capture) fonctionne mieux que blur sur délégation d'événements
-  $('#table-body').addEventListener('focusout', handleDesignationBlur, true);
+  $('#table-body').addEventListener('change', handleDesignationChange);
 }
 
 async function main(){

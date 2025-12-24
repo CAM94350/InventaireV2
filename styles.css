@@ -19,9 +19,8 @@ button.secondary{background:#555}
 #auth-user{font-weight:600}
 
 /* Palette inline */
-.palette-inline{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem}
-.palette-inline label{white-space:nowrap}
-.palette-inline input{padding:.35rem .45rem;border:1px solid var(--border);border-radius:.25rem;min-width:220px;flex:1 1 220px}
+.palette-inline{display:flex;align-items:center;gap:.35rem}
+.palette-inline input{padding:.35rem .45rem;border:1px solid var(--border);border-radius:.25rem;min-width:220px}
 .palette-inline button{padding:.35rem .55rem}
 
 /* Actions sous la palette */
@@ -53,16 +52,25 @@ td input[type="text"], td input[type="number"]{width:100%;border:1px solid var(-
 body.is-authenticated #auth-form { display: none !important; }
 body.is-authenticated #auth-info { display: flex !important; }
 
+
+
+/* Localisation palette */
+.palette-location{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.palette-location label{font-weight:600}
+.palette-location input{flex:1 1 320px;min-width:220px;padding:.35rem .45rem;border:1px solid var(--border);border-radius:.25rem}
+@media (max-width: 640px){
+  .palette-location{flex-direction:column;align-items:stretch}
+  .palette-location input{min-width:0;width:100%}
+}
+
 /* Mobile */
 @media (max-width: 640px){
-  .palette-inline input{min-width:150px;flex:1 1 150px}
+  .palette-inline input{min-width:160px}
   .status{order:2;width:100%;margin-left:0}
 
   #inventory-table tbody tr{display:flex;align-items:center;gap:.6rem}
-  .col-designation{flex:1 1 auto; min-width:0}
-  /* Quantité plus étroite en mobile (≈ 4 chiffres) */
+  .col-designation{flex:1; min-width:0}
   .col-qty{flex:0 0 auto; min-width:170px}
   .qty{height:36px;font-size:16px;width:84px}
   .qty-btn{width:36px;height:36px;border-radius:8px;font-size:18px}
 }
-

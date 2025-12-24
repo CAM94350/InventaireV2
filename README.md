@@ -5,8 +5,5 @@
 - Auth sur 3 lignes si non connecté.
 - Palette + Charger sur une ligne, actions en dessous.
 - Qté 4 chiffres, Désignation élargie.
-- Ajout du champ **Localisation** de la palette (colonne `palettes.location`).
-- En mobile : au clic sur **+ Ligne**, scroll en bas + focus sur la **Désignation**.
-- À la sortie du champ **Désignation** : upsert dans `items` + récupération de l'`id`.
-- Sauvegarde : chaque ligne reçoit un UUID côté client pour éviter `id=null` sur `pallet_items`.
+- Ajout automatique des désignations dans `items` (index unique) lors de la saisie et à la sauvegarde.
 - Supabase (URL/anon) intégré.
