@@ -82,62 +82,37 @@ body.is-authenticated #auth-info { display: flex !important; }
   .qty{height:36px;font-size:16px;width:84px}
   .qty-btn{width:36px;height:36px;border-radius:8px;font-size:18px}
 }
-
-/* ===========================
-   v11.0 – Locks & photos
-   =========================== */
+/* v11.1 – lock status */
 .lock-status{
-  margin-left: 10px;
-  font-weight: 600;
+  margin-left: 12px;
+  font-weight: 700;
+  color: #b00020;
 }
-.lock-status.locked{ color: #b00020; }
-.lock-status.owned{ color: #1b5e20; }
+.lock-status.ok{
+  color: #0b6b0b;
+}
 
-.palette-photos{
-  margin: 10px 0 12px 0;
+/* v11.1 – palette photos */
+.palette-photos-block{
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
   padding: 10px;
-  border: 1px solid rgba(0,0,0,.12);
-  border-radius: 10px;
-  background: rgba(0,0,0,.02);
 }
-.photos-head{
+.palette-photos-header{
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 8px;
 }
-.photos-title{ font-weight: 600; }
-.photo-list{
+.palette-photos-title{
+  font-weight: 700;
+}
+.palette-photos{
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  margin-top: 10px;
 }
-.photo-thumb{
-  width: 96px;
-  height: 96px;
-  border-radius: 10px;
-  object-fit: cover;
-  border: 1px solid rgba(0,0,0,.15);
-  background: rgba(0,0,0,.04);
-}
-
-@media (max-width: 640px){
-  /* Force localisation to single-line height, same as palette number */
-  #palette-location{
-    height: 44px !important;
-    min-height: 44px !important;
-    max-height: 44px !important;
-    line-height: 44px !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    box-sizing: border-box;
-  }
-  .palette-photos{ padding: 10px; }
-  .photo-thumb{ width: 88px; height: 88px; }
-}
-
-/* v11 – photo thumbnails */
 .palette-photo-thumb{
   width: 72px;
   height: 72px;
@@ -145,4 +120,9 @@ body.is-authenticated #auth-info { display: flex !important; }
   border-radius: 8px;
   margin-right: 8px;
   margin-bottom: 8px;
+}
+@media (max-width: 640px){
+  .palette-photos-header{
+    flex-direction: row;
+  }
 }

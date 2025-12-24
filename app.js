@@ -1,4 +1,77 @@
-const VERSION = "v11.0";
+
+function setLockStatus(msg, ok=false){
+  const el = document.getElementById('lock-status');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = ok ? 'lock-status ok' : 'lock-status';
+}
+
+function setUiReadOnly(readonly, reason=''){
+  isReadOnly = readonly;
+  const ids = ['add-row','save','btn-take-photo'];
+  ids.forEach(id=>{
+    const b = document.getElementById(id);
+    if(b) b.disabled = readonly;
+  });
+  const loc = document.getElementById('palette-location');
+  if(loc) loc.disabled = readonly;
+
+  // disable table inputs
+  document.querySelectorAll('#inventory-table input').forEach(inp=>{
+    inp.disabled = readonly;
+  });
+
+  if(readonly){
+    setLockStatus(reason || "Palette verrouillée : un autre utilisateur est en train d’inventorier.", false);
+  }else{
+    setLockStatus("", true);
+  }
+}
+
+async function acquireLock(paletteId){
+  // stop previous renew
+  if(lockRenewTimer){ clearInterval(lockRenewTimer); lockRenewTimer = null; }
+  currentLockToken = null;
+
+  const { data, error } = await supabase.rpc('acquire_palette_lock', {
+    p_palette_id: paletteId,
+    p_ttl_seconds: 600
+  });
+
+  if(error){
+    // If server raised PALETTE_LOCKED, show readonly; otherwise show technical error
+    const msg = (error.message || '').toLowerCase();
+    if(msg.includes('palette_locked') || msg.includes('palette locked') || error.code === 'P0001'){
+      setUiReadOnly(true, "Palette verrouillée : un autre utilisateur est en train d’inventorier.");
+      return false;
+    }
+    alert(`Erreur lock (acquire_palette_lock): ${error.message}`);
+    setUiReadOnly(true, "Erreur technique lors de la prise de verrou.");
+    return false;
+  }
+
+  // data can be array or object depending on supabase-js
+  const row = Array.isArray(data) ? data[0] : data;
+  currentLockToken = row?.lock_token || row?.lock_token || row?.lock_token;
+  setUiReadOnly(false, "");
+  lockRenewTimer = setInterval(async ()=>{
+    try{
+      await supabase.rpc('acquire_palette_lock', { p_palette_id: paletteId, p_ttl_seconds: 600 });
+    }catch(e){ console.error(e); }
+  }, 60000);
+  return true;
+}
+
+async function releaseLock(){
+  if(lockRenewTimer){ clearInterval(lockRenewTimer); lockRenewTimer = null; }
+  if(!currentPaletteId || !currentLockToken) return;
+  try{
+    await supabase.rpc('release_palette_lock', { p_palette_id: currentPaletteId, p_lock_token: currentLockToken });
+  }catch(e){ console.error(e); }
+  currentLockToken = null;
+}
+
+const VERSION = "v11.1";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -9,11 +82,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const $ = (sel, root=document)=>root.querySelector(sel);
 const $all = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
-let currentPaletteId = null; let isAuthenticated = false;
-
-    currentUserId = null;
-let currentUserId = null; let lastLoadedCode = '';
-let lockToken = null; let lockPaletteId = null; let lockRenewTimer = null; let lockedByOther = false;
+let currentPaletteId = null;
+let currentLockToken = null;
+let lockRenewTimer = null;
+let isReadOnly = false; let isAuthenticated = false; let lastLoadedCode = '';
 
 function newRow(){ return $('#row-template').content.firstElementChild.cloneNode(true); }
 function serializeRow(tr){
@@ -40,139 +112,6 @@ function fillTable(lines) {
 
 function setStatus(msg){ $('#status').textContent = msg; }
 
-
-function setLockStatus(text, mode){
-  const el = document.getElementById('lock-status');
-  if(!el) return;
-  el.textContent = text || '';
-  el.classList.remove('locked','owned');
-  if(mode) el.classList.add(mode);
-}
-
-function setEditable(isEditable){
-  // Toolbar
-  const ids = ['add-row','save','export-csv','print','btn-photo'];
-  ids.forEach(id=>{
-    const el=document.getElementById(id);
-    if(!el) return;
-    el.disabled = !isEditable;
-  });
-  // Table inputs
-  document.querySelectorAll('#table-body input, #table-body button').forEach(el=>{
-    if(el.classList.contains('qty-btn')) el.disabled = !isEditable;
-    else el.disabled = !isEditable;
-  });
-  // Location
-  const loc = document.getElementById('palette-location');
-  if(loc) loc.disabled = !isEditable;
-}
-
-async function acquirePaletteLock(paletteId){
-  if(!paletteId) return;
-
-  // Release previous lock if switching palette
-  if(lockToken && lockPaletteId && lockPaletteId !== paletteId){
-    await releasePaletteLock();
-  }
-
-  const { data, error } = await supabase.rpc('acquire_palette_lock', {
-    p_palette_id: paletteId,
-    p_ttl_seconds: 600
-  });
-
-  if (error) {
-    // Distinguish "locked by other" from genuine technical errors
-    const msg = (error.message || '').toUpperCase();
-    if (error.code === 'P0001' || msg.includes('PALETTE_LOCKED')) {
-      setLockedByOther("Palette verrouillée : un autre utilisateur est en train d’inventorier.");
-      return;
-    }
-    console.error('Erreur acquire_palette_lock:', error);
-    setLockStatus("Impossible de verrouiller la palette (erreur technique).", 'error');
-    setEditable(false);
-    alert(`Erreur verrouillage palette: ${error.message || error}`);
-    return;
-  }
-
-  // Supabase RPC returns array for set-returning functions
-  const row = Array.isArray(data) ? data[0] : data;
-
-  // If server returns lock owner info, enforce it
-  const serverLockedBy = row?.locked_by || row?.lockedBy || null;
-  if (serverLockedBy && currentUserId && serverLockedBy !== currentUserId) {
-    setLockedByOther("Palette verrouillée : un autre utilisateur est en train d’inventorier.");
-    return;
-  }
-
-  lockToken = row?.lock_token || row?.lockToken || row?.token || null;
-  lockPaletteId = paletteId;
-  lockedByOther = false;
-  setLockStatus('Palette verrouillée (vous).', 'owned');
-  setEditable(true);
-
-  // Renew every 60s
-  if(lockRenewTimer) clearInterval(lockRenewTimer);
-  lockRenewTimer = setInterval(async ()=>{
-    if(!lockPaletteId) return;
-    try{
-      await supabase.rpc('acquire_palette_lock', { p_palette_id: lockPaletteId, p_ttl_seconds: 600 });
-    }catch(_e){ /* ignore */ }
-  }, 60000);
-}
-
-async function releasePaletteLock(){
-  if(!lockPaletteId || !lockToken) return;
-  try{
-    await supabase.rpc('release_palette_lock', { p_palette_id: lockPaletteId, p_lock_token: lockToken });
-  }catch(_e){ /* ignore */ }
-  lockToken = null; lockPaletteId = null;
-  if(lockRenewTimer){ clearInterval(lockRenewTimer); lockRenewTimer=null; }
-  setLockStatus('', null);
-}
-
-function setLockedByOther(message){
-  lockedByOther = true;
-  setLockStatus(message || 'Palette verrouillée (autre utilisateur).', 'locked');
-  setEditable(false);
-}
-
-async function loadPhotos(paletteId){
-  const list = document.getElementById('photo-list');
-  if(!list){ return; }
-  list.innerHTML = '';
-  if(!paletteId) return;
-  const { data, error } = await supabase
-    .from('palette_photos')
-    .select('id, path, created_at')
-    .eq('palette_id', paletteId)
-    .order('created_at', { ascending: false });
-  if(error){ return; }
-  (data || []).forEach(p=>{
-    const img = document.createElement('img');
-    img.className = 'photo-thumb';
-    // Assume bucket public; if private, switch to signed URLs.
-    const { data: urlData } = supabase.storage.from('palette-photos').getPublicUrl(p.path);
-    img.src = urlData?.publicUrl || '';
-    img.alt = 'Photo palette';
-    img.loading = 'lazy';
-    list.appendChild(img);
-  });
-}
-
-async function uploadPhoto(file){
-  if(!currentPaletteId){ alert('Charger une palette avant de prendre une photo.'); return; }
-  if(lockedByOther){ alert('Palette verrouillée : impossible d’ajouter une photo.'); return; }
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  const filename = `${crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(16).slice(2))}.${ext}`;
-  const path = `${currentPaletteId}/${filename}`;
-  const { error: upErr } = await supabase.storage.from('palette-photos').upload(path, file, { upsert: false, contentType: file.type || 'image/jpeg' });
-  if(upErr){ alert('Erreur upload photo : ' + upErr.message); return; }
-  const { error: insErr } = await supabase.from('palette_photos').insert({ palette_id: currentPaletteId, path });
-  if(insErr){ alert('Erreur enregistrement photo : ' + insErr.message); return; }
-  await loadPhotos(currentPaletteId);
-}
-
-
 // --- AUTH ---
 async function signIn(email, password){
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -192,9 +131,7 @@ function refreshAuthUI(session){
     if (authInfoEl()) authInfoEl().hidden = false;
     if (authUserEl()) authUserEl().textContent = session.user.email || '';
     isAuthenticated = true;
-  
-    currentUserId = session.user.id;
-} else {
+  } else {
     if (authFormEl()) authFormEl().hidden = false;
     if (authInfoEl()) authInfoEl().hidden = true;
     if (authUserEl()) authUserEl().textContent = '';
@@ -282,14 +219,12 @@ async function loadPaletteByCode(code){
   currentPaletteId = pal.id;
   lastLoadedCode = code;
 
+  // v11.1: acquire lock
+  await acquireLock(currentPaletteId);
+  // v11.1: load photos
+  await renderPalettePhotos(currentPaletteId);
 
-  // Lock palette to prevent simultaneous inventory
-  try{
-    await acquirePaletteLock(pal.id);
-  }catch(e){
-    // setLockedByOther is handled inside acquirePaletteLock; keep as fallback
-    console.error('Lock error:', e);
-  }
+
   // Localisation : si vide sur la palette chargée, on vide le champ de saisie
   const locInput = $('#palette-location');
   if(locInput) locInput.value = (pal.location || '').trim();
@@ -431,4 +366,68 @@ async function main(){
 main();
 
 
-window.addEventListener('beforeunload', ()=>{ try{ releasePaletteLock(); }catch(_e){} });
+async function getSignedPhotoUrl(objectPath, expiresIn = 3600) {
+  const { data, error } = await supabase.storage.from('palette-photos').createSignedUrl(objectPath, expiresIn);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+async function renderPalettePhotos(paletteId) {
+  const container = document.getElementById('palette-photos');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!paletteId) return;
+
+  const { data: photos, error } = await supabase
+    .from('palette_photos')
+    .select('id, path, created_at')
+    .eq('palette_id', paletteId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erreur chargement photos', error);
+    return;
+  }
+
+  for (const p of (photos || [])) {
+    try {
+      const url = await getSignedPhotoUrl(p.path, 3600);
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = 'Photo palette';
+      img.className = 'palette-photo-thumb';
+      img.loading = 'lazy';
+      container.appendChild(img);
+    } catch (e) {
+      console.error('Erreur URL signée', e);
+    }
+  }
+}
+
+async function uploadPalettePhoto(file) {
+  if (!currentPaletteId || !file) return;
+  if (isReadOnly) return;
+
+  const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : 'jpg';
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const objectPath = `palette_${currentPaletteId}/${ts}.${ext}`;
+
+  // Upload in private bucket
+  const { error: upErr } = await supabase.storage
+    .from('palette-photos')
+    .upload(objectPath, file, { upsert: false, contentType: file.type || 'image/jpeg' });
+
+  if (upErr) throw upErr;
+
+  // Persist reference (requires lock via RLS)
+  const { error: insErr } = await supabase
+    .from('palette_photos')
+    .insert({ palette_id: currentPaletteId, path: objectPath });
+
+  if (insErr) throw insErr;
+
+  await renderPalettePhotos(currentPaletteId);
+}
+
+
+window.addEventListener('beforeunload', ()=>{ try{ releaseLock(); }catch(e){} });

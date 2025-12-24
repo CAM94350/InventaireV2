@@ -8,7 +8,7 @@
 </head>
 <body>
   <header>
-    <h1>Inventaire — v10.6-fix</h1>
+    <h1>Inventaire — v11.1</h1>
     <div class="toolbar">
       <!-- Auth sur 3 lignes -->
       <div id="auth-area" class="auth">
@@ -44,17 +44,18 @@
         <input type="text" id="palette-location" placeholder="Ex: Zone A / Allée 3 / Rack B2" />
       </div>
 
-      <div class="palette-photos">
-        <div class="photos-head">
-          <div class="photos-title">Photo de la palette</div>
-          <input type="file" id="photo-input" accept="image/*" capture="environment" hidden />
-          <button id="btn-photo" type="button">Prendre une photo</button>
+    </div>
+
+      <div class="palette-photos-block" id="palette-photos-block">
+        <div class="palette-photos-header">
+          <div class="palette-photos-title">Photo de la palette</div>
+          <button id="btn-take-photo" type="button">Prendre une photo</button>
+          <input id="photo-input" type="file" accept="image/*" capture="environment" hidden />
         </div>
-        <div id="photo-list" class="photo-list"></div>
+        <div id="palette-photos" class="palette-photos"></div>
       </div>
 
 
-    </div>
   </header>
 
   <main>
