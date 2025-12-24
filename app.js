@@ -1,3 +1,5 @@
+document.addEventListener('DOMContentLoaded', () => { try { setupPhotoCapture(); setupPaletteNumberSync(); } catch(e) { console.error(e); } });
+
 
 function setLockStatus(msg, ok=false){
   const el = document.getElementById('lock-status');
@@ -74,7 +76,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v11.3";
+const VERSION = "v11.4";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -85,7 +87,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 
 
-// v11.3 – client session id (per browser/device). Ensures locks work even with same login on multiple devices.
+// v11.4 – client session id (per browser/device). Ensures locks work even with same login on multiple devices.
 function getClientSessionId() {
   const key = 'inventaire_session_id';
   let v = localStorage.getItem(key);
@@ -237,9 +239,9 @@ async function loadPaletteByCode(code){
   currentPaletteId = pal.id;
   lastLoadedCode = code;
 
-  // v11.3: acquire lock
+  // v11.4: acquire lock
   await acquireLock(currentPaletteId);
-  // v11.3: load photos
+  // v11.4: load photos
   await renderPalettePhotos(currentPaletteId);
 
 
@@ -449,3 +451,44 @@ async function uploadPalettePhoto(file) {
 
 
 window.addEventListener('beforeunload', ()=>{ try{ releaseLock(); }catch(e){} });
+
+// v11.4 – Photo capture / selection
+function setupPhotoCapture() {
+  const btn = document.getElementById('btn-take-photo');
+  const input = document.getElementById('palette-photo-input');
+  if (!btn || !input) return;
+
+  btn.addEventListener('click', () => {
+    input.value = '';
+    input.click();
+  });
+
+  input.addEventListener('change', async () => {
+    try {
+      if (!currentPaletteId) {
+        alert("Veuillez d'abord charger une palette.");
+        return;
+      }
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      if (typeof isLocked !== 'undefined' && isLocked) {
+        alert("Palette verrouillée : impossible d'ajouter une photo.");
+        return;
+      }
+
+      await uploadPalettePhoto(currentPaletteId, currentPaletteNumber || currentPaletteId, file);
+    } catch (e) {
+      console.error(e);
+      alert("Erreur lors de l'envoi de la photo : " + (e.message || e));
+    }
+  });
+}
+
+// v11.4 – keep palette number in sync
+function setupPaletteNumberSync() {
+  const el = document.getElementById('palette-number');
+  if (!el) return;
+  currentPaletteNumber = el.value || null;
+  el.addEventListener('input', () => { currentPaletteNumber = el.value || null; });
+}
