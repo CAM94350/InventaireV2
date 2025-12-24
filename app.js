@@ -77,7 +77,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v11.4.2";
+const VERSION = "v11.4.3.3";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -88,7 +88,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 
 
-// v11.4.2 – client session id (per browser/device). Ensures locks work even with same login on multiple devices.
+// v11.4.3.3 – client session id (per browser/device). Ensures locks work even with same login on multiple devices.
 function getClientSessionId() {
   const key = 'inventaire_session_id';
   let v = localStorage.getItem(key);
@@ -240,9 +240,9 @@ async function loadPaletteByCode(code){
   currentPaletteId = pal.id;
   lastLoadedCode = code;
 
-  // v11.4.2: acquire lock
+  // v11.4.3.3: acquire lock
   await acquireLock(currentPaletteId);
-  // v11.4.2: load photos
+  // v11.4.3.3: load photos
   await renderPalettePhotos(currentPaletteId);
 
 
@@ -413,11 +413,15 @@ async function renderPalettePhotos(paletteId) {
   for (const p of (photos || [])) {
     try {
       const url = await getSignedPhotoUrl(p.path, 3600);
+      const card = document.createElement('div');
+      card.className = 'palette-photo-card';
+
       const img = document.createElement('img');
       img.src = url;
       img.alt = 'Photo palette';
       img.className = 'palette-photo-thumb';
       img.loading = 'lazy';
+
       img.addEventListener('click', ()=>{ window.open(url, '_blank'); });
       img.onerror = () => {
         console.error('Image non affichable. URL:', url);
@@ -427,9 +431,30 @@ async function renderPalettePhotos(paletteId) {
         a.textContent = 'Ouvrir la photo';
         a.style.display = 'inline-block';
         a.style.margin = '6px 8px';
-        container.appendChild(a);
+        card.appendChild(a);
       };
-      container.appendChild(img);
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'palette-photo-delete';
+      del.title = 'Supprimer la photo';
+      del.textContent = '×';
+      del.addEventListener('click', async (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (isReadOnly) { alert("Palette verrouillée : suppression impossible."); return; }
+        if (!confirm("Supprimer cette photo ?")) return;
+        try{
+          await deletePalettePhoto(p.id, p.path);
+        }catch(e){
+          console.error(e);
+          alert("Erreur suppression photo : " + (e.message || e));
+        }
+      });
+
+      card.appendChild(img);
+      card.appendChild(del);
+      container.appendChild(card);
     } catch (e) {
       console.error('Erreur URL signée', e);
     }
@@ -437,6 +462,8 @@ async function renderPalettePhotos(paletteId) {
 }
 
 async function uploadPalettePhoto(file) {
+  // Compression/redimensionnement automatique (utile sur smartphone)
+  file = await compressImageFile(file, { maxSize: 1600, quality: 0.82 });
   if (!currentPaletteId || !file) return;
   if (isReadOnly) return;
 
@@ -464,7 +491,7 @@ async function uploadPalettePhoto(file) {
 
 window.addEventListener('beforeunload', ()=>{ try{ releaseLock(); }catch(e){} });
 
-// v11.4.2 – Photo capture / selection
+// v11.4.3.3 – Photo capture / selection
 function setupPhotoCapture() {
   const btn = document.getElementById('btn-take-photo');
   const input = document.getElementById('palette-photo-input');
@@ -503,10 +530,77 @@ function setupPhotoCapture() {
   });
 }
 
-// v11.4.2 – keep palette number in sync
+// v11.4.3.3 – keep palette number in sync
 function setupPaletteNumberSync() {
   const el = document.getElementById('palette-number');
   if (!el) return;
   currentPaletteNumber = el.value || null;
   el.addEventListener('input', () => { currentPaletteNumber = el.value || null; });
+}
+
+
+// v11.4.3.3 – Compression/redimensionnement image côté client (Android/desktop)
+// - Convertit en JPEG pour réduire la taille
+// - Redimensionne sur un max (par défaut 1600px) en conservant le ratio
+async function compressImageFile(file, { maxSize = 1600, quality = 0.82 } = {}) {
+  if (!file) return file;
+  const isImage = (file.type || '').startsWith('image/');
+  if (!isImage) return file;
+
+  // Si le navigateur ne supporte pas createImageBitmap, on garde le fichier original
+  if (typeof createImageBitmap !== 'function') return file;
+
+  const bitmap = await createImageBitmap(file);
+  let { width, height } = bitmap;
+
+  // Calcul du redimensionnement
+  const maxDim = Math.max(width, height);
+  let scale = 1;
+  if (maxDim > maxSize) scale = maxSize / maxDim;
+
+  const targetW = Math.max(1, Math.round(width * scale));
+  const targetH = Math.max(1, Math.round(height * scale));
+
+  // Canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+
+  // Export JPEG compressé
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+  if (!blob) return file;
+
+  const outName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+  return new File([blob], outName, { type: 'image/jpeg' });
+}
+
+
+// v11.4.3.3 – Suppression d'une photo (DB + Storage)
+async function deletePalettePhoto(photoId, objectPath) {
+  if (!currentPaletteId) return;
+  if (!photoId || !objectPath) return;
+
+  // 1) Supprimer la référence en base (soumis à RLS: lock requis)
+  const { error: dbErr } = await supabase
+    .from('palette_photos')
+    .delete()
+    .eq('id', photoId)
+    .eq('palette_id', currentPaletteId);
+
+  if (dbErr) throw dbErr;
+
+  // 2) Supprimer le fichier dans le bucket (nécessite policy DELETE sur storage.objects)
+  const { error: stErr } = await supabase.storage
+    .from('palette-photos')
+    .remove([objectPath]);
+
+  if (stErr) {
+    // On n'empêche pas l'UI de se mettre à jour si le fichier n'a pas pu être supprimé,
+    // mais on remonte l'erreur pour correction de policy côté Storage.
+    throw stErr;
+  }
+
+  await renderPalettePhotos(currentPaletteId);
 }

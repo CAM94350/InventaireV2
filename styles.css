@@ -132,3 +132,27 @@ body.is-authenticated #auth-info { display: flex !important; }
   opacity: 0.8;
   margin-top: 6px;
 }
+
+/* v11.4.3 – photo card with delete button */
+.palette-photo-card{
+  position: relative;
+  display: inline-block;
+}
+.palette-photo-delete{
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  border: none;
+  background: #d33;
+  color: #fff;
+  font-size: 18px;
+  line-height: 22px;
+  cursor: pointer;
+}
+.palette-photo-delete:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
