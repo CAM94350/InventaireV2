@@ -58,8 +58,10 @@ body.is-authenticated #auth-info { display: flex !important; }
   .status{order:2;width:100%;margin-left:0}
 
   #inventory-table tbody tr{display:flex;align-items:center;gap:.6rem}
-  .col-designation{flex:1}
-  .col-qty{flex:0 0 auto; min-width:240px}
-  .qty{height:36px;font-size:16px;width:120px}
-  .qty-btn{width:40px;height:36px;border-radius:8px;font-size:18px}
+  .col-designation{flex:1 1 auto; min-width:0}
+  /* Quantité plus étroite en mobile (≈ 4 chiffres) */
+  .col-qty{flex:0 0 auto; min-width:170px}
+  .qty{height:36px;font-size:16px;width:84px}
+  .qty-btn{width:36px;height:36px;border-radius:8px;font-size:18px}
 }
+

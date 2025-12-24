@@ -1,4 +1,4 @@
-# Inventaire — v10.3
+# Inventaire — v10.4
 
 - Titre + header affichent la version.
 - Auth masquée si connecté (classe `is-authenticated` + `hidden`).
