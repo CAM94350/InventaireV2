@@ -136,3 +136,13 @@ body.is-authenticated #auth-info { display: flex !important; }
   .palette-photos{ padding: 10px; }
   .photo-thumb{ width: 88px; height: 88px; }
 }
+
+/* v11 – photo thumbnails */
+.palette-photo-thumb{
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}

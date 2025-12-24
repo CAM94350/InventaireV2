@@ -9,7 +9,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const $ = (sel, root=document)=>root.querySelector(sel);
 const $all = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
-let currentPaletteId = null; let isAuthenticated = false; let lastLoadedCode = '';
+let currentPaletteId = null; let isAuthenticated = false;
+
+    currentUserId = null;
+let currentUserId = null; let lastLoadedCode = '';
 let lockToken = null; let lockPaletteId = null; let lockRenewTimer = null; let lockedByOther = false;
 
 function newRow(){ return $('#row-template').content.firstElementChild.cloneNode(true); }
@@ -66,17 +69,41 @@ function setEditable(isEditable){
 
 async function acquirePaletteLock(paletteId){
   if(!paletteId) return;
+
   // Release previous lock if switching palette
   if(lockToken && lockPaletteId && lockPaletteId !== paletteId){
     await releasePaletteLock();
   }
+
   const { data, error } = await supabase.rpc('acquire_palette_lock', {
     p_palette_id: paletteId,
     p_ttl_seconds: 600
   });
-  if(error) throw error;
+
+  if (error) {
+    // Distinguish "locked by other" from genuine technical errors
+    const msg = (error.message || '').toUpperCase();
+    if (error.code === 'P0001' || msg.includes('PALETTE_LOCKED')) {
+      setLockedByOther("Palette verrouillée : un autre utilisateur est en train d’inventorier.");
+      return;
+    }
+    console.error('Erreur acquire_palette_lock:', error);
+    setLockStatus("Impossible de verrouiller la palette (erreur technique).", 'error');
+    setEditable(false);
+    alert(`Erreur verrouillage palette: ${error.message || error}`);
+    return;
+  }
+
   // Supabase RPC returns array for set-returning functions
   const row = Array.isArray(data) ? data[0] : data;
+
+  // If server returns lock owner info, enforce it
+  const serverLockedBy = row?.locked_by || row?.lockedBy || null;
+  if (serverLockedBy && currentUserId && serverLockedBy !== currentUserId) {
+    setLockedByOther("Palette verrouillée : un autre utilisateur est en train d’inventorier.");
+    return;
+  }
+
   lockToken = row?.lock_token || row?.lockToken || row?.token || null;
   lockPaletteId = paletteId;
   lockedByOther = false;
@@ -165,7 +192,9 @@ function refreshAuthUI(session){
     if (authInfoEl()) authInfoEl().hidden = false;
     if (authUserEl()) authUserEl().textContent = session.user.email || '';
     isAuthenticated = true;
-  } else {
+  
+    currentUserId = session.user.id;
+} else {
     if (authFormEl()) authFormEl().hidden = false;
     if (authInfoEl()) authInfoEl().hidden = true;
     if (authUserEl()) authUserEl().textContent = '';
@@ -258,8 +287,8 @@ async function loadPaletteByCode(code){
   try{
     await acquirePaletteLock(pal.id);
   }catch(e){
-    // If locked by other user, disable edition but still allow view
-    setLockedByOther("Palette verrouillée : un autre utilisateur est en train d’inventorier.");
+    // setLockedByOther is handled inside acquirePaletteLock; keep as fallback
+    console.error('Lock error:', e);
   }
   // Localisation : si vide sur la palette chargée, on vide le champ de saisie
   const locInput = $('#palette-location');
