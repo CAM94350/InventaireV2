@@ -9,7 +9,7 @@
 - Supabase (URL/anon) intégré.
 
 
-## v11.1
+## v11.2
 - Base: v10.8 (index.html conservé, ajouts minimaux)
 - Verrouillage palette via RPC acquire/release_palette_lock
 - Photos palette via bucket privé `palette-photos` (URLs signées)

@@ -33,7 +33,8 @@ async function acquireLock(paletteId){
   if(lockRenewTimer){ clearInterval(lockRenewTimer); lockRenewTimer = null; }
   currentLockToken = null;
 
-  const { data, error } = await supabase.rpc('acquire_palette_lock', {
+  const { data, error } = await supabase.rpc('acquire_palette_lock_v2', {
+      p_session_id: getClientSessionId(),
     p_palette_id: paletteId,
     p_ttl_seconds: 600
   });
@@ -45,7 +46,7 @@ async function acquireLock(paletteId){
       setUiReadOnly(true, "Palette verrouillée : un autre utilisateur est en train d’inventorier.");
       return false;
     }
-    alert(`Erreur lock (acquire_palette_lock): ${error.message}`);
+    alert(`Erreur lock (acquire_palette_lock_v2): ${error.message}`);
     setUiReadOnly(true, "Erreur technique lors de la prise de verrou.");
     return false;
   }
@@ -56,7 +57,8 @@ async function acquireLock(paletteId){
   setUiReadOnly(false, "");
   lockRenewTimer = setInterval(async ()=>{
     try{
-      await supabase.rpc('acquire_palette_lock', { p_palette_id: paletteId, p_ttl_seconds: 600 });
+      await supabase.rpc('acquire_palette_lock_v2', {
+      p_session_id: getClientSessionId(), p_palette_id: paletteId, p_ttl_seconds: 600 });
     }catch(e){ console.error(e); }
   }, 60000);
   return true;
@@ -66,12 +68,13 @@ async function releaseLock(){
   if(lockRenewTimer){ clearInterval(lockRenewTimer); lockRenewTimer = null; }
   if(!currentPaletteId || !currentLockToken) return;
   try{
-    await supabase.rpc('release_palette_lock', { p_palette_id: currentPaletteId, p_lock_token: currentLockToken });
+    await supabase.rpc('release_palette_lock_v2', {
+      p_session_id: getClientSessionId(), p_palette_id: currentPaletteId, p_lock_token: currentLockToken });
   }catch(e){ console.error(e); }
   currentLockToken = null;
 }
 
-const VERSION = "v11.1";
+const VERSION = "v11.3";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -79,6 +82,21 @@ const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+
+
+// v11.3 – client session id (per browser/device). Ensures locks work even with same login on multiple devices.
+function getClientSessionId() {
+  const key = 'inventaire_session_id';
+  let v = localStorage.getItem(key);
+  if (!v) {
+    v = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+    localStorage.setItem(key, v);
+  }
+  return v;
+}
 
 const $ = (sel, root=document)=>root.querySelector(sel);
 const $all = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
@@ -219,9 +237,9 @@ async function loadPaletteByCode(code){
   currentPaletteId = pal.id;
   lastLoadedCode = code;
 
-  // v11.1: acquire lock
+  // v11.3: acquire lock
   await acquireLock(currentPaletteId);
-  // v11.1: load photos
+  // v11.3: load photos
   await renderPalettePhotos(currentPaletteId);
 
 
