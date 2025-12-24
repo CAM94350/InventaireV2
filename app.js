@@ -1,4 +1,4 @@
-const VERSION = "v10.7";
+const VERSION = "v10.8";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
