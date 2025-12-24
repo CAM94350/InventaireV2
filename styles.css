@@ -60,12 +60,14 @@ body.is-authenticated #auth-info { display: flex !important; }
 .palette-location input{flex:1 1 320px;min-width:220px;padding:.35rem .45rem;border:1px solid var(--border);border-radius:.25rem}
 @media (max-width: 640px){
   .palette-location{flex-direction:column;align-items:stretch}
-  .palette-location input{min-width:0;width:100%}
+.palette-location input{flex:1 1 320px;min-width:220px;padding:.35rem .45rem;border:1px solid var(--border);border-radius:.25rem}
 }
 
 /* Mobile */
 @media (max-width: 640px){
   .palette-inline input{min-width:160px}
+  .palette-inline input{height:36px;font-size:16px}
+  .palette-location input{height:36px;font-size:16px}
   .status{order:2;width:100%;margin-left:0}
 
   #inventory-table tbody tr{display:flex;align-items:center;gap:.6rem}
