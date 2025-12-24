@@ -1,5 +1,5 @@
 // Inventaire Cloud
-const VERSION = "v10.4";
+const VERSION = "v10.5";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -84,12 +84,27 @@ async function initAuthUI(){
 
 // DATA
 async function getOrCreatePaletteByCode(code){
+  // On récupère aussi la localisation, pour l'afficher et la maintenir synchronisée.
   let { data: pal, error } = await supabase
-    .from('palettes').select('id, code').eq('code', code).maybeSingle();
-  if(error) throw error; if(pal) return pal.id;
+    .from('palettes').select('id, code, location').eq('code', code).maybeSingle();
+  if(error) throw error;
+  if(pal) return pal;
+
+  const location = $('#palette-location')?.value?.trim() || null;
   const { data: created, error: e2 } = await supabase
-    .from('palettes').insert({ code }).select('id').single();
-  if(e2) throw e2; return created.id;
+    .from('palettes').insert({ code, location }).select('id, code, location').single();
+  if(e2) throw e2;
+  return created;
+}
+
+async function updatePaletteLocation(paletteId){
+  if(!paletteId) return;
+  const location = $('#palette-location')?.value?.trim() || null;
+  const { error } = await supabase
+    .from('palettes')
+    .update({ location })
+    .eq('id', paletteId);
+  if(error) console.warn('palettes update location error:', error.message);
 }
 
 async function ensureItemAndGetId(designation){
@@ -135,13 +150,16 @@ async function prefillFromItemsIfEmpty(paletteId){
 async function loadPaletteByCode(code){
   if(!code){ alert('Saisir un numéro de palette'); return; }
   setStatus('Chargement...');
-  const paletteId = await getOrCreatePaletteByCode(code);
-  currentPaletteId = paletteId;
-  await prefillFromItemsIfEmpty(paletteId);
+  const pal = await getOrCreatePaletteByCode(code);
+  currentPaletteId = pal.id;
+  // Synchronise l'UI avec la donnée DB (si elle existe)
+  if($('#palette-location')) $('#palette-location').value = pal.location ?? '';
+
+  await prefillFromItemsIfEmpty(pal.id);
   const { data: lines, error } = await supabase
     .from('pallet_items')
     .select('id, designation, qty')
-    .eq('palette_id', paletteId)
+    .eq('palette_id', pal.id)
     .order('updated_at', { ascending:false });
   if(error) throw error;
   fillTable(lines||[]);
@@ -150,8 +168,14 @@ async function loadPaletteByCode(code){
 
 async function saveCurrentPalette(){
   const code = $('#palette-code').value.trim(); if(!code){ alert('Aucune palette'); return; }
-  const paletteId = currentPaletteId || await getOrCreatePaletteByCode(code);
+  const pal = currentPaletteId
+    ? { id: currentPaletteId }
+    : await getOrCreatePaletteByCode(code);
+  const paletteId = pal.id;
   currentPaletteId = paletteId;
+
+  // Sauvegarde aussi la localisation de la palette
+  await updatePaletteLocation(paletteId);
   const trs = $all('#table-body tr'); if(trs.length===0){ setStatus('Rien à sauvegarder'); return; }
   // On ignore les lignes vides (sinon contrainte NOT NULL côté DB)
   const rows = trs.map(serializeRow).filter(r => !!r.designation);

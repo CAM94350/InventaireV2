@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Inventaire — v10.4</title>
+  <title>Inventaire — v10.5</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
-    <h1>Inventaire — v10.4</h1>
+    <h1>Inventaire — v10.5</h1>
     <div class="toolbar">
       <!-- Auth sur 3 lignes -->
       <div id="auth-area" class="auth">
@@ -27,6 +27,10 @@
       <div class="palette-inline">
         <label for="palette-code">Numéro palette</label>
         <input type="text" id="palette-code" placeholder="Ex: PAL-2025-000123" />
+
+        <label for="palette-location">Localisation</label>
+        <input type="text" id="palette-location" placeholder="Ex: Réserve / Allée A / Quai" />
+
         <button id="btn-load-palette">Charger</button>
       </div>
 
@@ -69,7 +73,7 @@
   </template>
 
   <footer>
-    <p>Inventaire — v10.4 • Données Supabase</p>
+    <p>Inventaire — v10.5 • Données Supabase</p>
   </footer>
 
   <script type="module" src="app.js"></script>
