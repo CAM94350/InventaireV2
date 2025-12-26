@@ -1,5 +1,5 @@
 let currentPaletteNumber = null;
-document.addEventListener('DOMContentLoaded', () => { try { setupPhotoCapture(); setupPaletteNumberSync(); setupPaletteCodeLockRelease(); } catch(e) { console.error(e); } });
+document.addEventListener('DOMContentLoaded', () => { try { setupPhotoCapture(); setupPaletteNumberSync(); } catch(e) { console.error(e); } });
 
 
 function setLockStatus(msg, ok=false){
@@ -77,7 +77,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.1";
+const VERSION = "v12.2";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -145,7 +145,16 @@ const authInfoEl = () => document.getElementById('auth-info');
 const authUserEl = () => document.getElementById('auth-user');
 
 function refreshAuthUI(session){
+  // v12.2 – release lock when user becomes unauthenticated
+  const wasAuth = isAuthenticated;
+
   const isAuth = !!(session?.user);
+  if (wasAuth && !isAuth) {
+    try { releaseLock(); } catch(e) { console.error(e); }
+    if (typeof setUiReadOnly === 'function') {
+      setUiReadOnly(true, "Déconnecté : verrou libéré. Reconnectez-vous pour continuer.");
+    }
+  }
   document.body.classList.toggle('is-authenticated', isAuth);
   if (isAuth) {
     if (authFormEl()) authFormEl().hidden = true;
@@ -236,7 +245,8 @@ async function loadPaletteByCode(code){
   if(!code){ alert('Saisir un numéro de palette'); return; }
   setStatus('Chargement...');
 
-  // v12.0.1 – libérer le verrou de la palette précédente AVANT de charger la nouvelle
+  
+  // v12.2 – libérer le verrou de la palette précédente avant de charger une nouvelle palette
   if (currentPaletteId && currentLockToken && lastLoadedCode && code !== lastLoadedCode) {
     try { await releaseLock(); } catch(e) { console.error('releaseLock failed', e); }
   }
@@ -609,33 +619,12 @@ async function deletePalettePhoto(photoId, objectPath) {
   await renderPalettePhotos(currentPaletteId);
 }
 
-// v12.1 – libérer le verrou quand l’onglet est masqué (changement d’app, écran verrouillé, etc.)
+
+// v12.2 – libérer le verrou lors de la sortie de page (plus fiable que beforeunload sur mobile)
+window.addEventListener('pagehide', () => { try { releaseLock(); } catch(e) {} });
+
 document.addEventListener('visibilitychange', () => {
   try {
     if (document.hidden) { releaseLock(); }
   } catch(e) { console.error(e); }
 });
-
-// v12.1 – libérer le verrou lors de la sortie de page (meilleur que beforeunload sur mobile)
-window.addEventListener('pagehide', () => {
-  try { releaseLock(); } catch(e) {}
-});
-
-// v12.1 – si l’utilisateur change le N° de palette sans cliquer "Charger" tout de suite,
-// on libère le verrou de la palette courante pour éviter de bloquer un autre inventaire.
-function setupPaletteCodeLockRelease(){
-  const el = document.getElementById('palette-code');
-  if(!el) return;
-  el.addEventListener('input', async ()=>{
-    const newCode = (el.value || '').trim();
-    if(currentPaletteId && currentLockToken && lastLoadedCode && newCode && newCode !== lastLoadedCode){
-      try{
-        await releaseLock();
-        // On passe en lecture seule tant que la nouvelle palette n'est pas chargée
-        if(typeof setUiReadOnly === 'function'){
-          setUiReadOnly(true, "Verrou libéré. Cliquez sur « Charger » pour travailler sur la nouvelle palette.");
-        }
-      }catch(e){ console.error(e); }
-    }
-  });
-}
