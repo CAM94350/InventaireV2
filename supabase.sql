@@ -275,6 +275,39 @@ $$;
 
 grant execute on function audit.log_event(text,text,text,uuid,text,uuid,boolean,jsonb) to authenticated;
 
+-- v12.6 – Wrapper RPC exposé en schéma public (évite 404 /rest/v1/rpc/log_event)
+-- Supabase n'expose pas forcément le schéma audit via PostgREST.
+create or replace function public.log_event(
+  p_action text,
+  p_entity_type text default null,
+  p_entity_id text default null,
+  p_palette_id uuid default null,
+  p_palette_code text default null,
+  p_session_id uuid default null,
+  p_success boolean default true,
+  p_details jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, audit
+as $$
+begin
+  perform audit.log_event(
+    p_action,
+    p_entity_type,
+    p_entity_id,
+    p_palette_id,
+    p_palette_code,
+    p_session_id,
+    p_success,
+    p_details
+  );
+end;
+$$;
+
+grant execute on function public.log_event(text,text,text,uuid,text,uuid,boolean,jsonb) to authenticated;
+
 
 -- Triggers DB : palettes
 create or replace function audit.trg_palettes()

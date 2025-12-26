@@ -1,4 +1,4 @@
-# Inventaire — v12.5
+# Inventaire — v12.6
 
 - Titre + header affichent la version.
 - Auth masquée si connecté (classe `is-authenticated` + `hidden`).
@@ -13,6 +13,11 @@
 - Base: v10.8 (index.html conservé, ajouts minimaux)
 - Verrouillage palette via RPC acquire/release_palette_lock
 - Photos palette via bucket privé `palette-photos` (URLs signées)
+
+## v12.6
+
+- Correctif UX : lors du changement de palette, le champ **localisation** est remis à blanc si la palette n'a pas de `location` (ne conserve plus la valeur de la palette précédente).
+- Correctif Supabase RPC : ajout d'un wrapper `public.log_event(...)` pour exposer la RPC au endpoint `/rest/v1/rpc/log_event`.
 
 ## v12.5
 - Ajout d'un journal d'audit (parcours utilisateur) : table `audit.audit_events`

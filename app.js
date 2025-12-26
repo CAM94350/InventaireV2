@@ -79,7 +79,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.5";
+const VERSION = "v12.6";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -88,7 +88,7 @@ const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// v12.5 – Audit (parcours utilisateur)
+// v12.6 – Audit (parcours utilisateur)
 async function logEvent(action, opts = {}) {
   try {
     await supabase.rpc('log_event', {
@@ -222,9 +222,10 @@ async function getOrCreatePaletteByCode(code){
   if(error) throw error;
   if(pal) return pal;
 
-  const location = ($('#palette-location')?.value || '').trim() || null;
+  // v12.6 – Ne jamais hériter de la localisation de l'UI (risque de conserver la valeur de la palette précédente)
+  // La localisation est gérée via autosave sur la palette chargée.
   const { data: created, error: e2 } = await supabase
-    .from('palettes').insert({ code, location }).select('id, code, location').single();
+    .from('palettes').insert({ code, location: null }).select('id, code, location').single();
   if(e2) throw e2;
   return created;
 }
@@ -273,6 +274,11 @@ async function loadPaletteByCode(code){
   if(!code){ alert('Saisir un numéro de palette'); return; }
   setStatus('Chargement...');
 
+  // v12.6 – Toujours repartir d'un champ localisation vide lors d'un changement de palette
+  // (évite de conserver la valeur de la palette précédente si la nouvelle palette n'a pas de location)
+  const locInputEarly = $('#palette-location');
+  if(locInputEarly) locInputEarly.value = '';
+
   
   // v12.2 – libérer le verrou de la palette précédente avant de charger une nouvelle palette
   if (currentPaletteId && currentLockToken && lastLoadedCode && code !== lastLoadedCode) {
@@ -288,7 +294,7 @@ const pal = await getOrCreatePaletteByCode(code);
   await renderPalettePhotos(currentPaletteId);
 
 
-  // Localisation : si vide sur la palette chargée, on vide le champ de saisie
+  // Localisation : si NULL/vide sur la palette chargée, on doit afficher vide
   const locInput = $('#palette-location');
   if(locInput) locInput.value = (pal.location || '').trim();
 
