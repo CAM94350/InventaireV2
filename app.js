@@ -77,7 +77,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.2";
+const VERSION = "v12.3";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -512,11 +512,16 @@ function setupPhotoCapture() {
   if (!btn || !input) return;
 
   btn.addEventListener('click', () => {
+    // v12.3 – ouvrir l'appareil photo / explorateur peut masquer l'onglet (mobile)
+    // On évite de libérer le verrou pendant la prise/sélection de photo.
+    isPickingPhoto = true;
+    setTimeout(()=>{ isPickingPhoto = false; }, 20000);
     input.value = '';
     input.click();
   });
 
   input.addEventListener('change', async () => {
+    isPickingPhoto = false;
     try {
       if (!currentPaletteId) {
         alert("Veuillez d'abord charger une palette.");
@@ -534,6 +539,11 @@ function setupPhotoCapture() {
       if (typeof isLocked !== 'undefined' && isLocked) {
         alert("Palette verrouillée : impossible d'ajouter une photo.");
         return;
+      }
+
+      // v12.3 – si le lock a été libéré pendant l'ouverture de la caméra, on le reprend
+      if (!currentLockToken && typeof acquireLock === 'function') {
+        try { await acquireLock(currentPaletteId); } catch(e) { console.error(e); }
       }
 
       await uploadPalettePhoto(file);
@@ -625,6 +635,14 @@ window.addEventListener('pagehide', () => { try { releaseLock(); } catch(e) {} }
 
 document.addEventListener('visibilitychange', () => {
   try {
-    if (document.hidden) { releaseLock(); }
+    if (document.hidden) {
+      if (isPickingPhoto) return;
+      // v12.3 – libération différée : si l'utilisateur revient rapidement, on ne libère pas
+      setTimeout(() => {
+        try {
+          if (document.hidden && !isPickingPhoto) { releaseLock(); }
+        } catch(e) { console.error(e); }
+      }, 5000);
+    }
   } catch(e) { console.error(e); }
 });
