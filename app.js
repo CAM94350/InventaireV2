@@ -1,6 +1,7 @@
 let isPickingPhoto = false;
 let currentPaletteNumber = null;
-document.addEventListener('DOMContentLoaded', () => { try { setupPhotoCapture(); setupPaletteNumberSync(); } catch(e) { console.error(e); } });
+document.addEventListener('DOMContentLoaded', () => {
+  try { setupLocationAutosave(); } catch(e) { console.error(e); } try { setupPhotoCapture(); setupPaletteNumberSync(); } catch(e) { console.error(e); } });
 
 
 function setLockStatus(msg, ok=false){
@@ -78,7 +79,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.3.5";
+const VERSION = "v12.4";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -678,4 +679,38 @@ function normalizeStoragePath(p){
   const m = s.match(/\/palette-photos\/(.+?)(\?|$)/);
   if(m && m[1]) return decodeURIComponent(m[1]);
   return s.replace(/^\/?palette-photos\//,'');
+}
+
+
+// v12.4 – sauvegarde localisation dans public.palettes.location
+async function savePaletteLocation(paletteId, locationValue){
+  if(!paletteId) return;
+  const loc = (locationValue ?? '').toString().trim();
+
+  // Mise à jour simple (la palette existe dès qu'elle est chargée/créée)
+  const { error } = await supabase
+    .from('palettes')
+    .update({ location: loc })
+    .eq('id', paletteId);
+
+  if(error){
+    console.error('Erreur sauvegarde localisation', error);
+    throw error;
+  }
+}
+
+
+// v12.4 – autosave localisation on blur (si palette chargée et non verrouillée)
+function setupLocationAutosave(){
+  const el = document.getElementById('palette-location');
+  if(!el) return;
+  el.addEventListener('blur', async ()=>{
+    try{
+      if(!currentPaletteId) return;
+      if(typeof isLocked !== 'undefined' && isLocked) return;
+      await savePaletteLocation(currentPaletteId, el.value);
+    }catch(e){
+      console.error(e);
+    }
+  });
 }
