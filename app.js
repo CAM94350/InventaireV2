@@ -78,7 +78,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.3.4";
+const VERSION = "v12.3.5";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -410,6 +410,9 @@ async function getSignedPhotoUrl(objectPath, expiresIn = 3600) {
     e.__storageError = error;
     throw e;
   }
+  if (!data?.signedUrl || !String(data.signedUrl).includes('token=')) {
+    throw new Error('SIGNED_URL_MISSING_TOKEN');
+  }
   return data.signedUrl;
 }
 
@@ -665,4 +668,14 @@ document.addEventListener('visibilitychange', () => {
 function isNotFoundError(err){
   const msg = (err && (err.message || err.toString())) || '';
   return String(msg).toLowerCase().includes('not found');
+}
+
+
+// v12.3.5 – normaliser un path Storage (évite les paths stockés en URL complète ou préfixés bucket)
+function normalizeStoragePath(p){
+  if(!p) return p;
+  const s = String(p);
+  const m = s.match(/\/palette-photos\/(.+?)(\?|$)/);
+  if(m && m[1]) return decodeURIComponent(m[1]);
+  return s.replace(/^\/?palette-photos\//,'');
 }
