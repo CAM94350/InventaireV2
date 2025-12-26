@@ -31,19 +31,25 @@ alter table palettes enable row level security;
 alter table items enable row level security;
 alter table pallet_items enable row level security;
 
-create policy if not exists "palettes read if authenticated"
+drop policy if exists "palettes read if authenticated" on palettes;
+create policy "palettes read if authenticated"
   on palettes for select using (auth.uid() is not null);
-create policy if not exists "palettes write if authenticated"
+drop policy if exists "palettes write if authenticated" on palettes;
+create policy "palettes write if authenticated"
   on palettes for all using (auth.uid() is not null) with check (auth.uid() is not null);
 
-create policy if not exists "items read if authenticated"
+drop policy if exists "items read if authenticated" on items;
+create policy "items read if authenticated"
   on items for select using (auth.uid() is not null);
-create policy if not exists "items write if authenticated"
+drop policy if exists "items write if authenticated" on items;
+create policy "items write if authenticated"
   on items for all using (auth.uid() is not null) with check (auth.uid() is not null);
 
-create policy if not exists "pallet_items read if authenticated"
+drop policy if exists "pallet_items read if authenticated" on pallet_items;
+create policy "pallet_items read if authenticated"
   on pallet_items for select using (auth.uid() is not null);
-create policy if not exists "pallet_items write if authenticated"
+drop policy if exists "pallet_items write if authenticated" on pallet_items;
+create policy "pallet_items write if authenticated"
   on pallet_items for all using (auth.uid() is not null) with check (auth.uid() is not null);
 
 
@@ -174,14 +180,18 @@ alter table if exists public.pallet_items add column if not exists checked boole
 alter table if exists public.palette_photos enable row level security;
 alter table if exists public.palette_locks enable row level security;
 
-create policy if not exists "palette_photos read if authenticated"
+drop policy if exists "palette_photos read if authenticated" on public.palette_photos;
+create policy "palette_photos read if authenticated"
   on public.palette_photos for select using (auth.uid() is not null);
-create policy if not exists "palette_photos write if authenticated"
+drop policy if exists "palette_photos write if authenticated" on public.palette_photos;
+create policy "palette_photos write if authenticated"
   on public.palette_photos for all using (auth.uid() is not null) with check (auth.uid() is not null);
 
-create policy if not exists "palette_locks read if authenticated"
+drop policy if exists "palette_locks read if authenticated" on public.palette_locks;
+create policy "palette_locks read if authenticated"
   on public.palette_locks for select using (auth.uid() is not null);
-create policy if not exists "palette_locks write if authenticated"
+drop policy if exists "palette_locks write if authenticated" on public.palette_locks;
+create policy "palette_locks write if authenticated"
   on public.palette_locks for all using (auth.uid() is not null) with check (auth.uid() is not null);
 
 
@@ -209,7 +219,8 @@ create index if not exists idx_audit_events_palette on audit.audit_events(palett
 create index if not exists idx_audit_events_palette_code on audit.audit_events(palette_code, created_at desc);
 
 alter table audit.audit_events enable row level security;
-create policy if not exists "audit no direct access" on audit.audit_events
+drop policy if exists "audit no direct access" on audit.audit_events;
+create policy "audit no direct access" on audit.audit_events
 for all using (false) with check (false);
 
 create or replace function audit._insert_event(
