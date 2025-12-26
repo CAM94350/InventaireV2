@@ -78,7 +78,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.3.1";
+const VERSION = "v12.3.2";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -607,7 +607,21 @@ async function deletePalettePhoto(photoId, objectPath) {
   if (!currentPaletteId) return;
   if (!photoId || !objectPath) return;
 
-  // 1) Supprimer la référence en base (soumis à RLS: lock requis)
+  // v12.3.2 – suppression robuste : 1) Storage (tolère déjà supprimé) 2) DB 3) refresh UI
+
+  // 1) Supprimer le fichier (si déjà supprimé, on ignore)
+  const { error: stErr } = await supabase.storage
+    .from('palette-photos')
+    .remove([objectPath]);
+
+  if (stErr) {
+    const msg = (stErr && (stErr.message || stErr.error || stErr.toString())) || '';
+    if (!String(msg).toLowerCase().includes('not found')) {
+      throw stErr;
+    }
+  }
+
+  // 2) Supprimer la référence en base (soumis à RLS: lock requis)
   const { error: dbErr } = await supabase
     .from('palette_photos')
     .delete()
@@ -616,17 +630,7 @@ async function deletePalettePhoto(photoId, objectPath) {
 
   if (dbErr) throw dbErr;
 
-  // 2) Supprimer le fichier dans le bucket (nécessite policy DELETE sur storage.objects)
-  const { error: stErr } = await supabase.storage
-    .from('palette-photos')
-    .remove([objectPath]);
-
-  if (stErr) {
-    // On n'empêche pas l'UI de se mettre à jour si le fichier n'a pas pu être supprimé,
-    // mais on remonte l'erreur pour correction de policy côté Storage.
-    throw stErr;
-  }
-
+  // 3) Rafraîchir
   await renderPalettePhotos(currentPaletteId);
 }
 
