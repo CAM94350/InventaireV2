@@ -144,24 +144,3 @@ $$;
 
 grant execute on function public.acquire_palette_lock_v2(uuid, uuid, integer) to authenticated;
 grant execute on function public.release_palette_lock_v2(uuid, uuid, uuid) to authenticated;
-
-
-
--- v12.3.6 – RLS: autoriser la suppression d'une photo seulement si l'utilisateur détient le lock
-alter table public.palette_photos enable row level security;
-
-drop policy if exists palette_photos_delete_with_lock on public.palette_photos;
-
-create policy palette_photos_delete_with_lock
-on public.palette_photos
-for delete
-to authenticated
-using (
-  exists (
-    select 1
-    from public.palette_locks l
-    where l.palette_id = palette_photos.palette_id
-      and l.locked_by = auth.uid()
-      and l.expires_at > now()
-  )
-);
