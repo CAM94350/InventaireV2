@@ -1,3 +1,4 @@
+let isPickingPhoto = false;
 let currentPaletteNumber = null;
 document.addEventListener('DOMContentLoaded', () => { try { setupPhotoCapture(); setupPaletteNumberSync(); } catch(e) { console.error(e); } });
 
@@ -77,7 +78,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.3";
+const VERSION = "v12.3.1";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
