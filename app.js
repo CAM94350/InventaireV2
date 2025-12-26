@@ -79,7 +79,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.4";
+const VERSION = "v12.5";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -87,6 +87,25 @@ const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// v12.5 – Audit (parcours utilisateur)
+async function logEvent(action, opts = {}) {
+  try {
+    await supabase.rpc('log_event', {
+      p_action: action,
+      p_entity_type: opts.entity_type ?? null,
+      p_entity_id: opts.entity_id ?? null,
+      p_palette_id: opts.palette_id ?? null,
+      p_palette_code: opts.palette_code ?? null,
+      p_session_id: getClientSessionId(),
+      p_success: opts.success ?? true,
+      p_details: opts.details ?? {}
+    });
+  } catch (e) {
+    // L'audit ne doit jamais bloquer l'application
+    console.warn('audit log failed:', e?.message || e);
+  }
+}
 
 
 
@@ -178,9 +197,16 @@ function bindAuthHandlers(){
       const email = document.getElementById('auth-email').value.trim();
       const pwd   = document.getElementById('auth-password').value;
       await signIn(email, pwd);
+      await logEvent('auth.login', {
+        entity_type: 'auth',
+        details: { email: email || null }
+      });
     } catch(err){ alert('Auth: '+err.message); }
   });
-  document.getElementById('btn-logout')?.addEventListener('click', async ()=>{ await signOut(); });
+  document.getElementById('btn-logout')?.addEventListener('click', async ()=>{
+    await logEvent('auth.logout', { entity_type: 'auth' });
+    await signOut();
+  });
 }
 
 async function initAuthUI(){
@@ -277,6 +303,14 @@ const pal = await getOrCreatePaletteByCode(code);
 
   fillTable(lines||[]);
   setStatus(`Palette ${code} chargée (${lines?.length||0} lignes)`);
+
+  await logEvent('palette.load', {
+    entity_type: 'palettes',
+    entity_id: String(pal.id),
+    palette_id: pal.id,
+    palette_code: code,
+    details: { lines: (lines?.length||0) }
+  });
 }
 
 async function saveCurrentPalette(){
@@ -317,6 +351,14 @@ async function saveCurrentPalette(){
   }
 
   setStatus(`Sauvegardé (${payload.length} lignes)`);
+
+  await logEvent('palette.save', {
+    entity_type: 'palettes',
+    entity_id: String(paletteId),
+    palette_id: paletteId,
+    palette_code: code,
+    details: { lines: payload.length }
+  });
 }
 
 function exportCSV(){
@@ -384,8 +426,24 @@ function bindUI(){
   $('#btn-load-palette').addEventListener('click', ()=>loadPaletteByCode($('#palette-code').value.trim()));
   $('#add-row').addEventListener('click', addRow);
   $('#save').addEventListener('click', saveCurrentPalette);
-  $('#export-csv').addEventListener('click', exportCSV);
-  $('#print').addEventListener('click', ()=>window.print());
+  $('#export-csv').addEventListener('click', async ()=>{
+    await logEvent('ui.export_csv', {
+      entity_type: 'palettes',
+      entity_id: currentPaletteId ? String(currentPaletteId) : null,
+      palette_id: currentPaletteId,
+      palette_code: ($('#palette-code')?.value || '').trim() || null
+    });
+    exportCSV();
+  });
+  $('#print').addEventListener('click', async ()=>{
+    await logEvent('ui.print', {
+      entity_type: 'palettes',
+      entity_id: currentPaletteId ? String(currentPaletteId) : null,
+      palette_id: currentPaletteId,
+      palette_code: ($('#palette-code')?.value || '').trim() || null
+    });
+    window.print();
+  });
   $('#table-body').addEventListener('click', handleQtyButtons);
   $('#table-body').addEventListener('keydown', handleQtyKey);
   $('#table-body').addEventListener('click', focusQtyOnDesignationClick);
@@ -508,6 +566,14 @@ async function uploadPalettePhoto(file) {
     .insert({ palette_id: currentPaletteId, path: objectPath });
 
   if (insErr) throw insErr;
+
+  await logEvent('photo.upload', {
+    entity_type: 'palette_photos',
+    palette_id: currentPaletteId,
+    entity_id: null,
+    palette_code: ($('#palette-code')?.value || '').trim() || null,
+    details: { path: objectPath, size: file.size, type: file.type || null }
+  });
 
   await renderPalettePhotos(currentPaletteId);
 }
@@ -636,15 +702,26 @@ async function deletePalettePhoto(photoId, objectPath) {
     .from('palette-photos')
     .remove([objectPath]);
 
+  let storageNotFound = false;
   if (stErr) {
     const msg = (stErr && (stErr.message || stErr.error || stErr.toString())) || '';
     if (!String(msg).toLowerCase().includes('not found')) {
       console.warn('Suppression storage a échoué', stErr);
+    } else {
+      storageNotFound = true;
     }
   }
 
   // 3) Rafraîchir
   await renderPalettePhotos(currentPaletteId);
+
+  await logEvent('photo.delete', {
+    entity_type: 'palette_photos',
+    entity_id: String(photoId),
+    palette_id: currentPaletteId,
+    palette_code: ($('#palette-code')?.value || '').trim() || null,
+    details: { path: objectPath, storage_not_found: storageNotFound }
+  });
 }
 
 
@@ -697,6 +774,14 @@ async function savePaletteLocation(paletteId, locationValue){
     console.error('Erreur sauvegarde localisation', error);
     throw error;
   }
+
+  await logEvent('palette.location.update', {
+    entity_type: 'palettes',
+    entity_id: String(paletteId),
+    palette_id: paletteId,
+    palette_code: ($('#palette-code')?.value || '').trim() || null,
+    details: { location: loc || null }
+  });
 }
 
 
