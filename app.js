@@ -78,7 +78,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.3.3";
+const VERSION = "v12.3.4";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -612,9 +612,22 @@ async function deletePalettePhoto(photoId, objectPath) {
   if (!currentPaletteId) return;
   if (!photoId || !objectPath) return;
 
-  // v12.3.2 – suppression robuste : 1) Storage (tolère déjà supprimé) 2) DB 3) refresh UI
+  // v12.3.4 – suppression robuste (cohérente avec RLS):
+  // 1) DB d'abord (nécessite lock) 2) Storage ensuite (tolère déjà supprimé) 3) refresh UI
 
-  // 1) Supprimer le fichier (si déjà supprimé, on ignore)
+  // 1) Supprimer la référence en base (soumis à RLS: lock requis)
+  const { error: dbErr } = await supabase
+    .from('palette_photos')
+    .delete()
+    .eq('id', photoId)
+    .eq('palette_id', currentPaletteId);
+
+  if (dbErr) {
+    // Si RLS empêche la suppression, on ne supprime PAS le fichier pour éviter les orphelins inverses.
+    throw dbErr;
+  }
+
+  // 2) Supprimer le fichier dans le bucket (si déjà supprimé, on ignore)
   const { error: stErr } = await supabase.storage
     .from('palette-photos')
     .remove([objectPath]);
@@ -622,18 +635,9 @@ async function deletePalettePhoto(photoId, objectPath) {
   if (stErr) {
     const msg = (stErr && (stErr.message || stErr.error || stErr.toString())) || '';
     if (!String(msg).toLowerCase().includes('not found')) {
-      throw stErr;
+      console.warn('Suppression storage a échoué', stErr);
     }
   }
-
-  // 2) Supprimer la référence en base (soumis à RLS: lock requis)
-  const { error: dbErr } = await supabase
-    .from('palette_photos')
-    .delete()
-    .eq('id', photoId)
-    .eq('palette_id', currentPaletteId);
-
-  if (dbErr) throw dbErr;
 
   // 3) Rafraîchir
   await renderPalettePhotos(currentPaletteId);
