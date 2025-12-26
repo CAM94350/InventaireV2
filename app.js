@@ -78,7 +78,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.3.2";
+const VERSION = "v12.3.3";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -404,7 +404,12 @@ main();
 
 async function getSignedPhotoUrl(objectPath, expiresIn = 3600) {
   const { data, error } = await supabase.storage.from('palette-photos').createSignedUrl(objectPath, expiresIn);
-  if (error) throw error;
+  if (error) {
+    // v12.3.3 – normaliser le message pour traitement upstream
+    const e = new Error(error.message || 'Storage signed url error');
+    e.__storageError = error;
+    throw e;
+  }
   return data.signedUrl;
 }
 
@@ -471,7 +476,7 @@ async function renderPalettePhotos(paletteId) {
       card.appendChild(del);
       container.appendChild(card);
     } catch (e) {
-      console.error('Erreur URL signée', e);
+      // (silencieux)
     }
   }
 }
@@ -651,3 +656,9 @@ document.addEventListener('visibilitychange', () => {
     }
   } catch(e) { console.error(e); }
 });
+
+// v12.3.3 – detect Storage "not found" style errors (Supabase may return 400 + Object not found)
+function isNotFoundError(err){
+  const msg = (err && (err.message || err.toString())) || '';
+  return String(msg).toLowerCase().includes('not found');
+}
