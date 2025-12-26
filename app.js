@@ -78,7 +78,7 @@ async function releaseLock(){
   currentLockToken = null;
 }
 
-const VERSION = "v12.3.5";
+const VERSION = "v12.3.6";
 document.title = `Inventaire — ${VERSION}`;
 
 const SUPABASE_URL = "https://cypxkiqaemuclcbdtgtw.supabase.co";
@@ -615,8 +615,8 @@ async function deletePalettePhoto(photoId, objectPath) {
   if (!currentPaletteId) return;
   if (!photoId || !objectPath) return;
 
-  // v12.3.4 – suppression robuste (cohérente avec RLS):
-  // 1) DB d'abord (nécessite lock) 2) Storage ensuite (tolère déjà supprimé) 3) refresh UI
+  // v12.3.6 – suppression cohérente: DB d'abord (RLS/lock), puis Storage.
+  // Objectif: éviter les orphelins DB<->Storage et rendre l'erreur visible si RLS bloque.
 
   // 1) Supprimer la référence en base (soumis à RLS: lock requis)
   const { error: dbErr } = await supabase
@@ -626,8 +626,11 @@ async function deletePalettePhoto(photoId, objectPath) {
     .eq('palette_id', currentPaletteId);
 
   if (dbErr) {
-    // Si RLS empêche la suppression, on ne supprime PAS le fichier pour éviter les orphelins inverses.
-    throw dbErr;
+    console.error('DELETE palette_photos refusé', dbErr);
+    alert("Suppression refusée (RLS) : vérifiez la policy DELETE sur palette_photos (lock requis).
+
+" + (dbErr.message || dbErr));
+    return;
   }
 
   // 2) Supprimer le fichier dans le bucket (si déjà supprimé, on ignore)
@@ -642,7 +645,7 @@ async function deletePalettePhoto(photoId, objectPath) {
     }
   }
 
-  // 3) Rafraîchir
+  // 3) Rafraîchir l'affichage
   await renderPalettePhotos(currentPaletteId);
 }
 
@@ -671,7 +674,7 @@ function isNotFoundError(err){
 }
 
 
-// v12.3.5 – normaliser un path Storage (évite les paths stockés en URL complète ou préfixés bucket)
+// v12.3.6 – normaliser un path Storage (évite les paths stockés en URL complète ou préfixés bucket)
 function normalizeStoragePath(p){
   if(!p) return p;
   const s = String(p);
